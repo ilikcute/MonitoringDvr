@@ -15,18 +15,32 @@
       </div>
 
       <div class="py-4 space-y-4">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl">
-          <span>Belum punya format file yang sesuai?</span>
-          <a
-            href="/api/v1/stores/template?format=xlsx"
-            target="_blank"
-            class="font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
-          >
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span>Unduh Template Excel</span>
-          </a>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900/40">
+          <div>
+            <span class="font-bold text-slate-800 dark:text-slate-200 block">Belum punya format file yang sesuai?</span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">Unduh template standar berisi kolom toko & DVR:</span>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0">
+            <button
+              type="button"
+              @click="downloadTemplate('xlsx')"
+              :disabled="isDownloadingTemplate"
+              class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 flex items-center space-x-1 shadow-sm transition-all disabled:opacity-50"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Excel (.xlsx)</span>
+            </button>
+            <button
+              type="button"
+              @click="downloadTemplate('csv')"
+              :disabled="isDownloadingTemplate"
+              class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center space-x-1 shadow-sm transition-all disabled:opacity-50"
+            >
+              <span>CSV (.csv)</span>
+            </button>
+          </div>
         </div>
 
         <div>
@@ -134,6 +148,34 @@ const uploadFile = async () => {
     errorMessage.value = error.response?.data?.message || 'Gagal mengimpor file. Pastikan struktur kolom valid.';
   } finally {
     isUploading.value = false;
+  }
+};
+
+const isDownloadingTemplate = ref(false);
+
+const downloadTemplate = async (format = 'xlsx') => {
+  isDownloadingTemplate.value = true;
+  errorMessage.value = '';
+  try {
+    const response = await api.get('/stores/template', {
+      params: { format },
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], {
+      type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `cdams_template_impor_toko.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    errorMessage.value = 'Gagal mengunduh berkas template. Pastikan Anda telah masuk (login).';
+  } finally {
+    isDownloadingTemplate.value = false;
   }
 };
 

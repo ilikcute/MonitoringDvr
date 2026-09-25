@@ -15,17 +15,33 @@
         <!-- Export Button -->
         <button
           @click="initiateExport('xlsx')"
-          class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center space-x-1.5 shadow-sm transition-all"
+          :disabled="isExporting"
+          class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center space-x-1.5 shadow-sm transition-all disabled:opacity-50"
         >
-          <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span v-if="isExporting" class="animate-spin h-3.5 w-3.5 border-2 border-emerald-600 border-t-transparent rounded-full mr-1"></span>
+          <svg v-else class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <span>Ekspor Excel</span>
+          <span>{{ isExporting ? 'Mengekspor...' : 'Ekspor Excel' }}</span>
         </button>
 
-        <!-- Import Button (Super Admin) -->
+        <!-- Template Impor Button -->
         <button
-          v-if="authStore.isSuperAdmin"
+          @click="downloadTemplateFile('xlsx')"
+          :disabled="isDownloadingTemplate"
+          class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center space-x-1.5 shadow-sm transition-all disabled:opacity-50"
+          title="Unduh format template Excel untuk persiapan data impor"
+        >
+          <span v-if="isDownloadingTemplate" class="animate-spin h-3.5 w-3.5 border-2 border-purple-600 border-t-transparent rounded-full mr-1"></span>
+          <svg v-else class="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>{{ isDownloadingTemplate ? 'Mengunduh...' : 'Template Impor' }}</span>
+        </button>
+
+        <!-- Import Button (EDP & Super Admin) -->
+        <button
+          v-if="authStore.isSuperAdmin || authStore.isTechnician"
           @click="isImportOpen = true"
           class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center space-x-1.5 shadow-sm transition-all"
         >
@@ -35,9 +51,9 @@
           <span>Impor Data</span>
         </button>
 
-        <!-- Tambah Toko Button (Super Admin) -->
+        <!-- Tambah Toko Button (EDP & Super Admin) -->
         <button
-          v-if="authStore.isSuperAdmin"
+          v-if="authStore.isSuperAdmin || authStore.isTechnician"
           @click="openAddStoreModal"
           class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center space-x-1.5 transition-all"
         >
@@ -104,8 +120,30 @@
       </div>
       <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">Belum Ada Data Toko</h3>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-        Tambahkan data toko baru melalui tombol Tambah Toko atau gunakan fitur Impor Spreadsheet.
+        Data toko masih kosong atau belum ditemukan berdasarkan kriteria filter saat ini.
       </p>
+      <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <button
+          @click="downloadTemplateFile('xlsx')"
+          :disabled="isDownloadingTemplate"
+          class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center space-x-1.5 shadow-sm transition-all"
+        >
+          <svg class="h-3.5 w-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Unduh Template Excel</span>
+        </button>
+        <button
+          v-if="authStore.isSuperAdmin || authStore.isTechnician"
+          @click="isImportOpen = true"
+          class="px-3.5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-1.5 shadow-sm transition-all"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+          </svg>
+          <span>Impor Data dari Excel</span>
+        </button>
+      </div>
     </div>
 
     <!-- Desktop Dense Data Table (>= 1024px) -->
@@ -632,6 +670,8 @@ const isOtpModalOpen = ref(false);
 const exportFormat = ref('xlsx');
 const isImportOpen = ref(false);
 const isAddStoreOpen = ref(false);
+const isExporting = ref(false);
+const isDownloadingTemplate = ref(false);
 
 const isChecklistModalOpen = ref(false);
 const selectedDvrForChecklist = ref(null);
@@ -742,6 +782,10 @@ const formatDate = (isoString) => {
 };
 
 const initiateExport = (format) => {
+  if (pagination.value.total_records === 0 || stores.value.length === 0) {
+    showToast('⚠️ Data toko masih kosong. Tidak ada data yang dapat diekspor.');
+    return;
+  }
   exportFormat.value = format;
   if (networkStore.isWan) {
     isOtpModalOpen.value = true;
@@ -754,12 +798,78 @@ const onOtpVerified = (otp) => {
   downloadExportFile(exportFormat.value, otp);
 };
 
-const downloadExportFile = (format, otp = null) => {
-  let url = `/api/v1/stores/export?format=${format}`;
-  if (otp) {
-    url += `&otp=${otp}`;
+const downloadExportFile = async (format, otp = null) => {
+  if (pagination.value.total_records === 0 || stores.value.length === 0) {
+    showToast('⚠️ Data toko masih kosong. Tidak ada data yang dapat diekspor.');
+    return;
   }
-  window.open(url, '_blank');
+  isExporting.value = true;
+  try {
+    const response = await api.get('/stores/export', {
+      params: { format, otp },
+      responseType: 'blob',
+    });
+
+    if (response.data.type === 'application/json') {
+      const text = await response.data.text();
+      const json = JSON.parse(text);
+      showToast(`⚠️ ${json.message || 'Gagal mengekspor data.'}`);
+      return;
+    }
+
+    const blob = new Blob([response.data], {
+      type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `CDAMS_Direktori_Toko_${new Date().toISOString().slice(0, 10)}.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    showToast(`✓ Berkas data toko (${format.toUpperCase()}) berhasil diunduh.`);
+  } catch (error) {
+    let errorMsg = 'Gagal mengunduh file ekspor.';
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        errorMsg = json.message || errorMsg;
+      } catch (_) {}
+    } else if (error.response?.data?.message) {
+      errorMsg = error.response.data.message;
+    }
+    showToast(`⚠️ ${errorMsg}`);
+  } finally {
+    isExporting.value = false;
+  }
+};
+
+const downloadTemplateFile = async (format = 'xlsx') => {
+  isDownloadingTemplate.value = true;
+  try {
+    const response = await api.get('/stores/template', {
+      params: { format },
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], {
+      type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `cdams_template_impor_toko.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    showToast(`✓ Template impor (${format.toUpperCase()}) berhasil diunduh.`);
+  } catch (error) {
+    showToast('⚠️ Gagal mengunduh berkas template.');
+  } finally {
+    isDownloadingTemplate.value = false;
+  }
 };
 
 const openAddStoreModal = () => {

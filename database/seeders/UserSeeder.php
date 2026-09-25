@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Budi Santoso (Teknisi)',
+                'name' => 'Aan Budianto (Teknisi)',
                 'email' => 'teknisi@cdams.local',
                 'password' => Hash::make('password'),
                 'role' => 'technician',
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Rina Wijaya (Operator IC)',
+                'name' => 'Aris (Operator IC)',
                 'email' => 'ic@cdams.local',
                 'password' => Hash::make('password'),
                 'role' => 'dept_operator',
@@ -48,7 +48,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Doni Pratama (Operator SPV)',
+                'name' => 'JURIT',
                 'email' => 'spv@cdams.local',
                 'password' => Hash::make('password'),
                 'role' => 'dept_operator',
@@ -57,7 +57,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Eko Prasetyo (Operator DEV)',
+                'name' => 'SYI',
                 'email' => 'dev@cdams.local',
                 'password' => Hash::make('password'),
                 'role' => 'dept_operator',

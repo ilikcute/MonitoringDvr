@@ -129,12 +129,14 @@ class StoreSpreadsheetService
             'L1' => 'dvr2_ip',
             'M1' => 'dvr2_label',
             'N1' => 'dvr2_brand',
+            'O1' => 'dvr1_serial_number',
+            'P1' => 'dvr2_serial_number',
         ];
 
         foreach ($headers as $cell => $val) {
             $sheet->setCellValue($cell, $val);
         }
-        $sheet->getStyle('A1:N1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:P1')->getFont()->setBold(true);
 
         // Contoh data baris 1
         $sheet->setCellValue('A2', 'T001');
@@ -151,9 +153,11 @@ class StoreSpreadsheetService
         $sheet->setCellValue('L2', '192.168.25.201');
         $sheet->setCellValue('M2', 'DVR 2 - Area Gudang');
         $sheet->setCellValue('N2', 'Hikvision');
+        $sheet->setCellValue('O2', 'DS-7208HQHI-SN1001');
+        $sheet->setCellValue('P2', 'DS-7208HQHI-SN1002');
 
         // Auto size
-        foreach (range('A', 'N') as $col) {
+        foreach (range('A', 'P') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -225,32 +229,44 @@ class StoreSpreadsheetService
                 $dvr1Ip = trim((string) ($row['I'] ?? '')) ?: '192.168.25.200';
                 $dvr1Label = trim((string) ($row['J'] ?? '')) ?: 'DVR 1 - Area Kasir & Toko';
                 $dvr1Brand = trim((string) ($row['K'] ?? '')) ?: 'Hikvision';
+                $dvr1Sn = trim((string) ($row['O'] ?? '')) ?: null;
 
-                Dvr::firstOrCreate(
-                    ['store_id' => $store->id, 'dvr_index' => 1],
-                    [
-                        'label' => $dvr1Label,
-                        'ip_address' => $dvr1Ip,
-                        'brand' => $dvr1Brand,
-                        'status' => 'Offline',
-                    ]
-                );
+                $dvr1 = Dvr::firstOrNew([
+                    'store_id' => $store->id,
+                    'dvr_index' => 1,
+                ]);
+                $dvr1->label = $dvr1Label;
+                $dvr1->ip_address = $dvr1Ip;
+                $dvr1->brand = $dvr1Brand;
+                if ($dvr1Sn) {
+                    $dvr1->serial_number = $dvr1Sn;
+                }
+                if (!$dvr1->exists) {
+                    $dvr1->status = 'Offline';
+                }
+                $dvr1->save();
 
                 // DVR 2 (opsional jika dvr2_ip terisi)
                 $dvr2Ip = trim((string) ($row['L'] ?? ''));
                 if (!empty($dvr2Ip)) {
                     $dvr2Label = trim((string) ($row['M'] ?? '')) ?: 'DVR 2 - Area Gudang';
                     $dvr2Brand = trim((string) ($row['N'] ?? '')) ?: 'Hikvision';
+                    $dvr2Sn = trim((string) ($row['P'] ?? '')) ?: null;
 
-                    Dvr::firstOrCreate(
-                        ['store_id' => $store->id, 'dvr_index' => 2],
-                        [
-                            'label' => $dvr2Label,
-                            'ip_address' => $dvr2Ip,
-                            'brand' => $dvr2Brand,
-                            'status' => 'Offline',
-                        ]
-                    );
+                    $dvr2 = Dvr::firstOrNew([
+                        'store_id' => $store->id,
+                        'dvr_index' => 2,
+                    ]);
+                    $dvr2->label = $dvr2Label;
+                    $dvr2->ip_address = $dvr2Ip;
+                    $dvr2->brand = $dvr2Brand;
+                    if ($dvr2Sn) {
+                        $dvr2->serial_number = $dvr2Sn;
+                    }
+                    if (!$dvr2->exists) {
+                        $dvr2->status = 'Offline';
+                    }
+                    $dvr2->save();
                 }
             } catch (\Throwable $e) {
                 $errors[] = "Baris {$rowNum} ({$storeCode}): " . $e->getMessage();

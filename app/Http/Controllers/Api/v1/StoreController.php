@@ -438,11 +438,11 @@ class StoreController extends Controller
     }
 
     /**
-     * Unggah dan impor spreadsheet data toko (Super Admin only).
+     * Unggah dan impor spreadsheet data toko (EDP & Super Admin).
      */
     public function import(Request $request): JsonResponse
     {
-        $this->authorizeSuperAdmin($request);
+        $this->authorizeEdp($request);
 
         $request->validate([
             'file' => 'required|file|mimes:xlsx,csv,txt,xls|max:10240',
@@ -471,6 +471,14 @@ class StoreController extends Controller
     {
         if (!$request->user()->isSuperAdmin()) {
             abort(403, 'Aksi ini hanya diizinkan untuk peran Super Admin EDP.');
+        }
+    }
+
+    private function authorizeEdp(Request $request): void
+    {
+        $user = $request->user();
+        if (!$user || (!$user->isSuperAdmin() && !$user->isTechnician())) {
+            abort(403, 'Aksi ini hanya diizinkan untuk Tim EDP / Super Admin.');
         }
     }
 }
