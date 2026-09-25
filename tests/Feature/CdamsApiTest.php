@@ -23,8 +23,10 @@ class CdamsApiTest extends TestCase
 
     public function test_user_can_login_and_audit_log_is_recorded(): void
     {
+        $admin = User::where('role', 'superadmin')->first();
+
         $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'admin@cdams.local',
+            'email' => $admin->email,
             'password' => 'password',
         ]);
 
@@ -40,14 +42,16 @@ class CdamsApiTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'AUTH_LOGIN_SUCCESS',
-            'user_id' => User::where('email', 'admin@cdams.local')->first()->id,
+            'user_id' => $admin->id,
         ]);
     }
 
     public function test_failed_login_records_audit_log(): void
     {
+        $admin = User::where('role', 'superadmin')->first();
+
         $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'admin@cdams.local',
+            'email' => $admin->email,
             'password' => 'wrong_password',
         ]);
 
@@ -60,7 +64,7 @@ class CdamsApiTest extends TestCase
 
     public function test_store_crud_and_dvr_auto_provisioning(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
 
         // 1. Create Store with DVR 1
         $response = $this->actingAs($admin)->postJson('/api/v1/stores', [
@@ -101,9 +105,10 @@ class CdamsApiTest extends TestCase
 
     public function test_department_isolation_on_credential_reveal(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
-        $icOperator = User::where('email', 'ic@cdams.local')->first();
-        $audOperator = User::where('email', 'audit@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
+        $deptOperator = User::where('role', 'dept_operator')->whereNotNull('department_id')->first();
+        $operatorDept = $deptOperator->department;
+        $otherDept = Department::where('id', '!=', $operatorDept->id)->first();
 
         $store = Store::create([
             'store_code' => 'T202',
@@ -119,33 +124,33 @@ class CdamsApiTest extends TestCase
             'ip_address' => '192.168.25.200',
         ]);
 
-        $icAccount = $dvr->accounts()->whereHas('department', fn ($q) => $q->where('code', 'IC'))->first();
-        $audAccount = $dvr->accounts()->whereHas('department', fn ($q) => $q->where('code', 'AUD'))->first();
+        $ownAccount = $dvr->accounts()->where('department_id', $operatorDept->id)->first();
+        $otherAccount = $dvr->accounts()->where('department_id', $otherDept->id)->first();
 
-        // IC Operator reveals IC Account -> SUCCESS 200
-        $resIc = $this->actingAs($icOperator)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$icAccount->id}/reveal-password");
-        $resIc->assertStatus(200)
-              ->assertJsonPath('data.department_code', 'IC')
+        // Operator reveals their own department account -> SUCCESS 200
+        $resOwn = $this->actingAs($deptOperator)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$ownAccount->id}/reveal-password");
+        $resOwn->assertStatus(200)
+              ->assertJsonPath('data.department_code', $operatorDept->code)
               ->assertJsonPath('data.expires_in_seconds', 15);
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'CREDENTIAL_REVEAL',
-            'department_code' => 'IC',
-            'user_id' => $icOperator->id,
+            'department_code' => $operatorDept->code,
+            'user_id' => $deptOperator->id,
         ]);
 
-        // IC Operator attempts to reveal AUD Account -> FORBIDDEN 403 (BR-ACC-002)
-        $resForbidden = $this->actingAs($icOperator)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$audAccount->id}/reveal-password");
+        // Operator attempts to reveal other department account -> FORBIDDEN 403 (BR-ACC-002)
+        $resForbidden = $this->actingAs($deptOperator)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$otherAccount->id}/reveal-password");
         $resForbidden->assertStatus(403);
 
         // Super Admin can reveal ANY account -> SUCCESS 200
-        $resAdmin = $this->actingAs($admin)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$audAccount->id}/reveal-password");
+        $resAdmin = $this->actingAs($admin)->postJson("/api/v1/dvrs/{$dvr->id}/accounts/{$otherAccount->id}/reveal-password");
         $resAdmin->assertStatus(200);
     }
 
     public function test_dvr_check_submission_and_ntp_sync_rule(): void
     {
-        $technician = User::where('email', 'teknisi@cdams.local')->first();
+        $technician = User::where('role', 'technician')->first();
 
         $store = Store::create([
             'store_code' => 'T303',
@@ -184,7 +189,7 @@ class CdamsApiTest extends TestCase
 
     public function test_dedicated_ping_test_to_default_ip(): void
     {
-        $technician = User::where('email', 'teknisi@cdams.local')->first();
+        $technician = User::where('role', 'technician')->first();
 
         $response = $this->actingAs($technician)->postJson('/api/v1/dvrs/ping-test', [
             'ip_address' => '192.168.25.200',
@@ -204,7 +209,7 @@ class CdamsApiTest extends TestCase
 
     public function test_wan_export_requires_otp(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
 
         // 1. Request export simulated on WAN without OTP -> 403 Forbidden
         $response = $this->actingAs($admin)

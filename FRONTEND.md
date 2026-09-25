@@ -1,57 +1,108 @@
-# UI/UX Specification
+# UI/UX Specification (Frontend Architecture)
 
 | Metadata | Nilai |
 |---|---|
 | **Sistem** | CCTV DVR Asset & Access Management System (CDAMS) |
-| **Framework** | Vue.js 3 + Tailwind CSS |
-| **Design Approach** | Responsive Adaptive (Desktop Data-Dense, Mobile Action-First) |
+| **Framework** | Vue.js 3 (Composition API `<script setup>`) + Vite |
+| **State Management** | Pinia Global Store |
+| **Styling** | Tailwind CSS v4 + Lucide Icons |
+| **Tema** | Dual Theme Engine (Light Mode & Dark Mode dengan persistensi `localStorage`) |
+| **Versi Dokumen** | 1.2.0 |
 
 ---
 
-## 1. Prinsip Desain & Palet Warna
+## 1. Prinsip Desain & Sistem Warna
 
-* **Primary (EDP / Industrial Blue):** `#1E40AF` (Tailwind `blue-800`) – Elemen navigasi, header, aksi primer.
-* **Accent (Action/Success):** `#059669` (Tailwind `emerald-600`) – Status Online, Akun Aktif, Tombol Simpan.
-* **Warning / Alert:** `#D97706` (Tailwind `amber-600`) – Time Out of Sync, Overdue Check.
-* **Danger:** `#DC2626` (Tailwind `red-600`) – Offline, HDD Error, Hapus Data.
-* **Background Surface:** `#F8FAFC` (Tailwind `slate-50`) untuk canvas, `#FFFFFF` untuk cards/modals.
-
----
-
-## 2. Desain Layout Berdasarkan Breakpoint
-
-### 2.1 Desktop Layout ($\ge 1024\text{px}$)
-* **Navigasi:** Persistent Collapsible Sidebar di sebelah kiri (Dashboard, Master Toko, Status DVR, Checklist, Audit Log, User Management).
-* **Header Bar:** Menampilkan Status Mode Jaringan (`LAN Head Office` / `WAN Toko`), Search Global Bar (`Ctrl + K`), dan User Profile.
-* **Kerapatan Informasi:** Menggunakan **Dense Data Table** dengan kolom:
-  `Kode Toko | Nama Toko | Region | DVR 1 (Status & IP) | DVR 2 (Status & IP) | Akun Ready | Aksi`.
-* **Ekspor & Filter Cepat:** Komponen multi-dropdown untuk Area, Status DVR (All/Online/Offline), dan tombol `Export Excel`.
-
-### 2.2 Mobile Layout ($< 768\text{px}$) – Teknisi Lapangan / Mobile View
-* **Navigasi:** Bottom Navigation Bar dengan 4 ikon utama: `Dashboard`, `Pencarian Toko`, `Form Cek`, `Profil`.
-* **Pencarian Cepat:** Floating Top Search Bar dengan fitur autofocus untuk mengetik Kode Toko (misal: `T214`) atau scan QR Toko.
-* **Tampilan Data Berbasis Kartu (Card-Based):**
-  * Tidak menggunakan horizontal scrolling table.
-  * Setiap toko disajikan dalam kartu terlipat (*accordion card*):
-    * Header kartu: `[Kode Toko] - Nama Toko` + Badge Status (`2/2 Online`).
-    * Isi kartu: Tab segmented `[DVR 1]` dan `[DVR 2]`.
-    * Tombol aksi besar: `[Lihat Kredensial]` dan `[Mulai Checklist]`.
+* **Primary (Industrial Corporate Blue):** `#1E40AF` (Tailwind `blue-800`) – Header, tombol aksi primer, tab aktif.
+* **Success / Online Accent:** `#059669` (Tailwind `emerald-600`) – Status DVR Online, checklist normal, indikator berhasil.
+* **Warning / Alert:** `#D97706` (Tailwind `amber-600`) – NTP Out of Sync (> 180s), Check Overdue, DVR Degraded.
+* **Danger / Offline:** `#DC2626` (Tailwind `red-600`) – DVR Offline, HDD Error, Kamera Rusak, Tombol Hapus.
+* **Canvas Terang (Light Mode):** Background `#F8FAFC` (`slate-50`), Kartu/Panel `#FFFFFF`, Border `#E2E8F0` (`slate-200`).
+* **Canvas Gelap (Dark Mode):** Background `#0F172A` (`slate-900`), Kartu/Panel `#1E293B` (`slate-800`), Border `#334155` (`slate-700`).
 
 ---
 
-## 3. Komponen Khusus
+## 2. Fitur Unggulan Antarmuka (UI Features)
 
-### 3.1 Komponen Kartu Akun Departemen (Secure Credential Card)
-* Menampilkan 5 kartu vertikal sesuai departemen:
-  * Icon badge: `IC` (Kuning), `EDP` (Biru), `Security` (Merah), `Ops` (Hijau), `Audit` (Ungu).
-  * Field: `Username` (teks biasa), `Password` (awalnya disembunyikan dalam karakter bullet `••••••••`).
-  * Interaksi:
-    * Klik icon mata: Mengirim request dekripsi ke API internal; password terbuka selama 10 detik lalu kembali tersamarkan.
-    * Tombol `Copy`: Menyalin langsung ke clipboard perangkat.
+### 2.1 Dual Theme Engine (Dark & Light Mode)
+* Dikelola melalui state reaktif pada Pinia store (`stores/theme.js`).
+* Tersimpan otomatis di `localStorage` peramban pengguna.
+* Menggunakan selector class `.dark` pada elemen root `<html>`, diselaraskan dengan Tailwind CSS v4 untuk transisi warna yang mulus dan nyaman di mata teknisi lapangan saat malam hari maupun siang hari.
 
-### 3.2 Form Checklist Cepat Mobile (Fast Inspection Wizard)
-* Didesain dengan tombol sakelar (*toggle switch*) berukuran ramah sentuhan (touch target minimum $48\times 48\text{px}$):
-  * `Ping Online?` [Ya] / [Tidak]
-  * `Kondisi HDD:` [Normal] / [Error]
-  * `Kamera Rusak:` Input counter minus/plus `[-] 0 [+]`
-  * `Catatan:` Input suara (speech-to-text bawaan browser) atau ketik ringkas.
+### 2.2 Global Search Modal (`Ctrl + K`)
+* Dapat diaktifkan melalui shortcut keyboard `Ctrl + K` atau klik search bar pada navbar atas.
+* Pencarian cepat tanpa jeda (*instant search*) berdasarkan Kode Toko, Nama Toko, atau Wilayah.
+* Navigasi langsung ke halaman detail toko yang dipilih.
+
+### 2.3 Deteksi Jaringan Real-Time (LAN vs WAN Badge)
+* Header bar secara otomatis menampilkan badge mode koneksi:
+  * `LAN - Head Office` (Hijau) saat diakses dari jaringan kantor pusat.
+  * `WAN - Toko / Publik` (Amber/Biru) saat diakses melalui internet / port forwarding publik.
+
+---
+
+## 3. Direktori Halaman (Views Architecture)
+
+### 3.1 `LoginView.vue` (`/login`)
+* Halaman autentikasi tunggal dengan branding korporat CDAMS.
+* Form input Email & Password dengan validasi sisi klien dan penanganan error dari API.
+* Pengalihan otomatis (*navigation guard*) sesuai status autentikasi.
+
+### 3.2 `DashboardView.vue` (`/`)
+* Kartu metrik KPI utama: Total Toko, Total Unit DVR, DVR Online, DVR Offline, dan DVR Overdue Pemeriksaan.
+* Indikator status jaringan aktif (`LAN` / `WAN`).
+* Tabel riwayat aktivitas audit log terkini (*recent activities feed*).
+
+### 3.3 `StoresListView.vue` (`/stores`)
+* **Data-Dense Table:** Menampilkan daftar toko dengan kolom: Kode Toko, Nama Toko, Wilayah, Status DVR 1, Status DVR 2, Kesiapan Akun, dan Aksi.
+* **Filter Bar:** Pencarian teks, filter wilayah (*region*), dan filter status toko.
+* **Aksi Massal:**
+  - Tombol **Export Excel** dengan proteksi dataset kosong (*empty toast notification*) dan tantangan OTP jika diakses via WAN.
+  - Tombol **Import Excel/CSV** yang membuka modal import dengan validasi file dan link unduhan template resmi.
+  - Tombol **Tambah Toko** untuk mendaftarkan gerai baru.
+
+### 3.4 `StoreDetailView.vue` (`/stores/:id`)
+* **Header & Info Toko:** Kode toko, nama gerai, wilayah, subnet IP, kontak person, nomor telepon, dan status gerai.
+* **Aksi Toko:** Tombol **Edit Toko** membuka modal pembaruan informasi gerai.
+* **Kartu DVR Interaktif:**
+  - Menampilkan Label DVR, Merk, Model, **Serial Number (SN)**, IP Address & Port, serta kapasitas storage/retensi.
+  - Tombol **Edit Detail DVR** untuk memperbarui serial number, IP, port, atau kapasitas tanpa menghapus kredensial.
+  - Tombol **Quick Ping Test** untuk memeriksa respon jaringan perangkat secara instan.
+  - Badge waktu checklist terakhir terformat (`d M Y, H:i WIB`) beserta nama teknisi pelaksana.
+* **Grid 5 Akun Departemen (`CredentialCard.vue`):**
+  - Kartu terpisah untuk: `IC`, `EDP`, `SPV`, `DEV`, `AUD`.
+  - Tombol intip password (*reveal*) dengan countdown otomatis 15 detik dan log audit otomatis.
+  - Tombol salin kredensial (*copy to clipboard*).
+  - Isolasi wewenang: Operator hanya melihat akun divisinya sendiri; Super Admin melihat seluruh 5 akun.
+* **Riwayat Checklist Lapangan:** Daftar inspeksi terdahulu beserta tombol **Mulai Checklist** untuk membuka formulir inspeksi baru.
+
+### 3.5 `ChecksView.vue` (`/checks`)
+* Halaman rekapitulasi checklist lapangan seluruh toko.
+* Filter pencarian toko, filter temuan abnormal (*abnormal only*: deviasi jam NTP > 180s, HDD error, atau kamera rusak).
+* Tabel rekapitulasi lengkap dengan kolom: Waktu Pemeriksaan (`d M Y, H:i WIB`), Toko, DVR, Teknisi Pelaksana, Status Ping, Sinkronisasi Jam, Kondisi HDD, Kamera Normal/Rusak, dan Tombol **Detail**.
+* Modal detail checklist untuk meninjau catatan lengkap dan parameter teknis hasil inspeksi lapangan.
+
+### 3.6 `UsersView.vue` (`/users`)
+* Khusus untuk Super Admin:
+  - Tabel manajemen akun pengguna sistem.
+  - Filter pencarian nama/email dan filter role.
+  - Badge role warna-warni (`superadmin`, `technician`, `dept_operator`, `management`).
+  - Modal **Tambah / Edit Pengguna** dengan pemilihan role, asosiasi departemen, dan reset kata sandi.
+  - Switch aktif/nonaktif akun instan.
+
+### 3.7 `AuditLogsView.vue` (`/audit-logs`)
+* Khusus untuk Super Admin:
+  - Tabel pencatatan jejak audit sistem (*append-only*).
+  - Filter jenis aksi (`CREDENTIAL_REVEAL`, `DVR_IP_CHANGED`, `USER_CREATED`, dll.), tipe jaringan (`LAN`/`WAN`), dan rentang waktu.
+  - Modal peninjau JSON diff nilai lama (*old values*) versus nilai baru (*new values*).
+
+---
+
+## 4. Komponen Modular (`resources/js/components/`)
+
+1. **`ChecklistFormModal.vue`:** Modal formulir inspeksi lapangan ramah sentuhan (touch-friendly) untuk input cepat teknisi.
+2. **`CredentialCard.vue`:** Kartu kredensial departemen dengan fitur reveal timer 15 detik, copy clipboard, dan edit password.
+3. **`StoreImportModal.vue`:** Modal upload berkas spreadsheet dengan link unduh template resmi dan progress bar status proses.
+4. **`ExportOtpModal.vue`:** Modal verifikasi OTP untuk otorisasi ekspor data massal ketika diakses dari jaringan WAN.
+5. **`GlobalSearchModal.vue`:** Modal pencarian cepat global dengan shortcut `Ctrl + K`.
+6. **`PingTestButton.vue`:** Tombol utilitas asynchronous untuk verifikasi ping IP DVR secara langsung dengan status indikator visual.

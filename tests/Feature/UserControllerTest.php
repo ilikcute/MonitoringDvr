@@ -19,7 +19,7 @@ class UserControllerTest extends TestCase
 
     public function test_superadmin_can_list_and_create_user(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
         $icDept = Department::where('code', 'IC')->first();
 
         // 1. List users
@@ -55,8 +55,8 @@ class UserControllerTest extends TestCase
 
     public function test_superadmin_can_update_and_delete_user(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
-        $targetUser = User::where('email', 'teknisi@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
+        $targetUser = User::where('role', 'technician')->first();
 
         // Update
         $updateRes = $this->actingAs($admin)->putJson("/api/v1/users/{$targetUser->id}", [
@@ -89,7 +89,7 @@ class UserControllerTest extends TestCase
 
     public function test_superadmin_cannot_delete_self(): void
     {
-        $admin = User::where('email', 'admin@cdams.local')->first();
+        $admin = User::where('role', 'superadmin')->first();
 
         $response = $this->actingAs($admin)->deleteJson("/api/v1/users/{$admin->id}");
         $response->assertStatus(422)
@@ -98,8 +98,8 @@ class UserControllerTest extends TestCase
 
     public function test_non_superadmin_is_forbidden_from_user_management(): void
     {
-        $technician = User::where('email', 'teknisi@cdams.local')->first();
-        $icOperator = User::where('email', 'ic@cdams.local')->first();
+        $technician = User::where('role', 'technician')->first();
+        $icOperator = User::whereHas('department', fn ($q) => $q->where('code', 'IC'))->first();
 
         $res1 = $this->actingAs($technician)->getJson('/api/v1/users');
         $res1->assertStatus(403);
