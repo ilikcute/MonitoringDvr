@@ -231,4 +231,46 @@ class CdamsApiTest extends TestCase
 
         $downloadRes->assertStatus(200);
     }
+
+    public function test_checklist_export_excel_streamed_download(): void
+    {
+        $technician = User::where('role', 'technician')->first() ?? User::factory()->create(['role' => 'technician']);
+
+        $store = \App\Models\Store::create([
+            'store_code' => 'T999',
+            'store_name' => 'Toko Uji Export',
+            'region' => 'Jabodetabek',
+            'status' => 'Active',
+        ]);
+
+        $dvr = \App\Models\Dvr::create([
+            'store_id' => $store->id,
+            'dvr_index' => 1,
+            'label' => 'DVR 1 - Toko',
+            'ip_address' => '10.10.9.200',
+            'status' => 'Online',
+        ]);
+
+        \App\Models\DvrCheck::create([
+            'dvr_id' => $dvr->id,
+            'checked_by_user_id' => $technician->id,
+            'check_timestamp' => now(),
+            'is_ping_online' => true,
+            'is_time_synced' => true,
+            'time_difference_seconds' => 10,
+            'hdd_status' => 'Normal',
+            'record_retention_days' => 30,
+            'camera_working_count' => 8,
+            'camera_broken_count' => 0,
+            'network_type' => 'LAN',
+            'notes' => 'Test inspeksi ekspor.',
+        ]);
+
+        $response = $this->actingAs($technician)
+            ->get('/api/v1/checks/export?format=xlsx');
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString('attachment; filename="CDAMS_Checklist_Report_', (string) $response->headers->get('content-disposition'));
+    }
 }

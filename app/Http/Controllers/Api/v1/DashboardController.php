@@ -37,6 +37,18 @@ class DashboardController extends Controller
         // Checklist Metrics
         $checksThisMonth = DvrCheck::where('check_timestamp', '>=', Carbon::now()->startOfMonth())->count();
 
+        // Jumlah Toko yang sudah pernah dilakukan pengecekan (memiliki minimal 1 unit DVR yang sudah dicek)
+        $checkedStoresCount = Store::whereHas('dvrs', function ($q) {
+            $q->whereNotNull('last_check_at');
+        })->count();
+
+        // Jumlah Toko yang diperiksa dalam bulan berjalan
+        $checkedStoresThisMonth = Store::whereHas('dvrs.checks', function ($q) {
+            $q->where('check_timestamp', '>=', Carbon::now()->startOfMonth());
+        })->count();
+
+        $checkedPercentage = $activeStores > 0 ? round(($checkedStoresCount / $activeStores) * 100, 1) : 0;
+
         // DVR Overdue: Belum pernah dicek atau terakhir dicek > 45 hari lalu
         $overdueDvrsCount = Dvr::whereHas('store', function ($q) {
             $q->where('status', 'Active');
@@ -76,6 +88,8 @@ class DashboardController extends Controller
                     'active' => $activeStores,
                     'renovation' => $renovationStores,
                     'closed' => $closedStores,
+                    'checked_count' => $checkedStoresCount,
+                    'checked_percentage' => $checkedPercentage,
                 ],
                 'dvrs' => [
                     'total' => $totalDvrs,
@@ -87,6 +101,9 @@ class DashboardController extends Controller
                 'checklists' => [
                     'this_month' => $checksThisMonth,
                     'overdue_count' => $overdueDvrsCount,
+                    'checked_stores_count' => $checkedStoresCount,
+                    'checked_stores_this_month' => $checkedStoresThisMonth,
+                    'checked_stores_percentage' => $checkedPercentage,
                 ],
                 'regional_distribution' => $regions,
                 'recent_logs' => $recentLogs,

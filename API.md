@@ -317,6 +317,16 @@
 ### 6.3 Daftar DVR Overdue Pemeriksaan
 * **Endpoint:** `GET /api/v1/checks/overdue`
 
+### 6.4 Ekspor Laporan Checklist Lapangan (Excel / CSV)
+* **Endpoint:** `GET /api/v1/checks/export`
+* **Query Params:**
+  * `search` (string, optional) - Pencarian nama toko, kode toko, IP, atau catatan
+  * `has_issue` (string, optional) - `yes` (hanya temuan kendala), `no` (kondisi normal)
+  * `status` (string, optional) - `online`, `offline`
+  * `format` (string, default: `xlsx`) - `xlsx` atau `csv`
+* **Output:** Berkas spreadsheet Excel (`.xlsx`) atau `.csv` yang berisi 20 kolom rincian checklist teknisi (tanggal/jam, toko, DVR, SN, teknisi, ping, selisih jam, HDD, kamera, status temuan, catatan).
+* **Audit Trail:** Mencatat log `MASS_DATA_EXPORT` dengan target `DvrCheck`.
+
 ---
 
 ## 7. Modul Audit Logs

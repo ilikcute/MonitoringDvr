@@ -57,6 +57,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/dvrs/{dvr_id}/accounts/{account_id}', [DvrAccountController::class, 'update']);
 
         // Checklist Lapangan Teknisi
+        Route::get('/checks/export', [DvrCheckController::class, 'export']);
         Route::get('/checks', [DvrCheckController::class, 'listAll']);
         Route::get('/checks/overdue', [DvrCheckController::class, 'overdue']);
         Route::get('/dvrs/{dvr_id}/checks', [DvrCheckController::class, 'index']);

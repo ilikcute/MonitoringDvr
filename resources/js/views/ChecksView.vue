@@ -12,6 +12,20 @@
       </div>
 
       <div class="flex items-center space-x-2">
+        <!-- Tombol Export Excel -->
+        <button
+          @click="downloadChecklistExport('xlsx')"
+          :disabled="isExporting"
+          class="px-3.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 flex items-center space-x-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+          title="Ekspor laporan checklist lapangan ke spreadsheet Excel (.xlsx)"
+        >
+          <span v-if="isExporting" class="animate-spin h-3.5 w-3.5 border-2 border-emerald-600 border-t-transparent rounded-full"></span>
+          <svg v-else class="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{{ isExporting ? 'Mengekspor...' : 'Export Excel' }}</span>
+        </button>
+
         <button
           @click="refreshData"
           :disabled="isLoading"
@@ -473,6 +487,14 @@
         </p>
       </div>
     </div>
+
+    <!-- Toast Notification -->
+    <div
+      v-if="toastMessage"
+      class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-semibold shadow-2xl border border-white/10 dark:border-slate-800/10 backdrop-blur-md transition-all animate-bounce"
+    >
+      {{ toastMessage }}
+    </div>
   </div>
 </template>
 
@@ -488,7 +510,70 @@ const stats = ref({
 });
 const overdueDvrs = ref([]);
 const isLoading = ref(true);
+const isExporting = ref(false);
+const toastMessage = ref(null);
 const isOverdueExpanded = ref(true);
+
+const showToast = (msg) => {
+  toastMessage.value = msg;
+  setTimeout(() => {
+    toastMessage.value = null;
+  }, 4000);
+};
+
+const downloadChecklistExport = async (format = 'xlsx') => {
+  if (pagination.value.total_records === 0 || checks.value.length === 0) {
+    showToast('⚠️ Data riwayat checklist masih kosong atau tidak ditemukan.');
+    return;
+  }
+
+  isExporting.value = true;
+  try {
+    const params = { format };
+    if (filters.value.search) params.search = filters.value.search;
+    if (filters.value.has_issue !== 'all') params.has_issue = filters.value.has_issue;
+    if (filters.value.status !== 'all') params.status = filters.value.status;
+
+    const response = await api.get('/checks/export', {
+      params,
+      responseType: 'blob',
+    });
+
+    if (response.data.type === 'application/json') {
+      const text = await response.data.text();
+      const json = JSON.parse(text);
+      showToast(`⚠️ ${json.message || 'Gagal mengekspor data checklist.'}`);
+      return;
+    }
+
+    const blob = new Blob([response.data], {
+      type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `CDAMS_Checklist_Report_${new Date().toISOString().slice(0, 10)}.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    showToast(`✓ Berkas Rekap Checklist (${format.toUpperCase()}) berhasil diunduh.`);
+  } catch (error) {
+    let errorMsg = 'Gagal mengunduh file rekap checklist.';
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        errorMsg = json.message || errorMsg;
+      } catch (_) {}
+    } else if (error.response?.data?.message) {
+      errorMsg = error.response.data.message;
+    }
+    showToast(`✕ ${errorMsg}`);
+  } finally {
+    isExporting.value = false;
+  }
+};
 
 const filters = ref({
   search: '',

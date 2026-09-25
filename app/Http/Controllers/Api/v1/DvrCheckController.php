@@ -7,17 +7,93 @@ use App\Models\Dvr;
 use App\Models\DvrCheck;
 use App\Services\AuditLogger;
 use App\Services\NetworkDetector;
+use App\Services\ChecklistSpreadsheetService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DvrCheckController extends Controller
 {
     public function __construct(
         protected AuditLogger $auditLogger,
-        protected NetworkDetector $networkDetector
+        protected NetworkDetector $networkDetector,
+        protected ChecklistSpreadsheetService $spreadsheetService
     ) {
+    }
+
+    /**
+     * Ekspor Rekapitulasi Hasil Checklist Lapangan ke format XLSX atau CSV.
+     */
+    public function export(Request $request): StreamedResponse|JsonResponse
+    {
+        $search = $request->query('search');
+        $status = $request->query('status');
+        $hasIssue = $request->query('has_issue');
+        $format = strtolower($request->query('format', 'xlsx'));
+
+        if (!in_array($format, ['xlsx', 'csv'])) {
+            $format = 'xlsx';
+        }
+
+        $query = DvrCheck::with(['dvr.store', 'checker:id,name,role'])
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->whereHas('dvr.store', function ($sq) use ($search) {
+                        $sq->where('store_code', 'like', "%{$search}%")
+                           ->orWhere('store_name', 'like', "%{$search}%")
+                           ->orWhere('region', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('dvr', function ($dq) use ($search) {
+                        $dq->where('label', 'like', "%{$search}%")
+                           ->orWhere('ip_address', 'like', "%{$search}%");
+                    })
+                    ->orWhere('notes', 'like', "%{$search}%");
+                });
+            })
+            ->when($hasIssue === 'yes', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('camera_broken_count', '>', 0)
+                        ->orWhere('hdd_status', '!=', 'Normal')
+                        ->orWhere('is_time_synced', false)
+                        ->orWhere('is_ping_online', false);
+                });
+            })
+            ->when($hasIssue === 'no', function ($q) {
+                $q->where('camera_broken_count', 0)
+                    ->where('hdd_status', 'Normal')
+                    ->where('is_time_synced', true)
+                    ->where('is_ping_online', true);
+            })
+            ->when($status === 'online', fn ($q) => $q->where('is_ping_online', true))
+            ->when($status === 'offline', fn ($q) => $q->where('is_ping_online', false))
+            ->latest('check_timestamp');
+
+        $checks = $query->get();
+
+        if ($checks->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada data hasil checklist lapangan yang dapat diekspor.',
+            ], 200);
+        }
+
+        $detectedNetwork = $request->attributes->get('network_type') ?? $this->networkDetector->detect($request);
+
+        // Catat Audit Log Ekspor
+        $this->auditLogger->log(
+            action: 'MASS_DATA_EXPORT',
+            targetType: 'DvrCheck',
+            newValues: [
+                'format' => $format,
+                'total_records' => $checks->count(),
+                'network_type' => $detectedNetwork,
+            ],
+            request: $request
+        );
+
+        return $this->spreadsheetService->export($checks, $format);
     }
 
     /**
